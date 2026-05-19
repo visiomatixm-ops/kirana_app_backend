@@ -1,0 +1,156 @@
+// Kirana Enterprise — Prisma Schema
+// Run: npx prisma migrate dev --name init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── User & Shop ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  phone        String   @unique
+  passwordHash String
+  role         Role     @default(OWNER)
+  shop         Shop?    @relation(fields: [shopId], references: [id])
+  shopId       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Shop {
+  id           String     @id @default(cuid())
+  name         String
+  gstin        String?
+  phone        String?
+  email        String?
+  address      String?
+  pincode      String?
+  logoUrl      String?
+  signatureUrl String?
+  users        User[]
+  products     Product[]
+  customers    Customer[]
+  bills        Bill[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+// ─── Inventory ────────────────────────────────────────────────────────────────
+
+model Product {
+  id         String         @id @default(cuid())
+  shop       Shop           @relation(fields: [shopId], references: [id])
+  shopId     String
+  name       String
+  unit       String         @default("pcs")
+  mrp        Float
+  costPrice  Float
+  stock      Float          @default(0)
+  lowStock   Float          @default(5)   // alert threshold
+  billItems  BillItem[]
+  stockLogs  InventoryLog[]
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+}
+
+model InventoryLog {
+  id        String    @id @default(cuid())
+  product   Product   @relation(fields: [productId], references: [id])
+  productId String
+  type      StockType
+  qty       Float
+  note      String?
+  createdAt DateTime  @default(now())
+}
+
+// ─── Customers / Khata ────────────────────────────────────────────────────────
+
+model Customer {
+  id           String        @id @default(cuid())
+  shop         Shop          @relation(fields: [shopId], references: [id])
+  shopId       String
+  name         String
+  phone        String
+  balance      Float         @default(0)   // positive = customer owes shop
+  bills        Bill[]
+  transactions Transaction[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Transaction {
+  id         String          @id @default(cuid())
+  customer   Customer        @relation(fields: [customerId], references: [id])
+  customerId String
+  type       TransactionType
+  amount     Float
+  note       String?
+  createdAt  DateTime        @default(now())
+}
+
+// ─── Billing ─────────────────────────────────────────────────────────────────
+
+model Bill {
+  id          String       @id @default(cuid())
+  shop        Shop         @relation(fields: [shopId], references: [id])
+  shopId      String
+  customer    Customer?    @relation(fields: [customerId], references: [id])
+  customerId  String?
+  items       BillItem[]
+  subtotal    Float
+  discount    Float        @default(0)
+  total       Float
+  paymentMode PaymentMode  @default(CASH)
+  status      BillStatus   @default(PAID)
+  createdAt   DateTime     @default(now())
+}
+
+model BillItem {
+  id        String  @id @default(cuid())
+  bill      Bill    @relation(fields: [billId], references: [id])
+  billId    String
+  product   Product @relation(fields: [productId], references: [id])
+  productId String
+  name      String  // snapshot at time of sale
+  qty       Float
+  price     Float   // snapshot mrp at time of sale
+  total     Float
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  OWNER
+  STAFF
+}
+
+enum StockType {
+  ADD
+  SELL
+  ADJUST
+}
+
+enum TransactionType {
+  CREDIT  // customer paid
+  DEBIT   // customer took on credit
+}
+
+enum PaymentMode {
+  CASH
+  UPI
+  CARD
+  CREDIT
+}
+
+enum BillStatus {
+  PAID
+  PENDING
+  CANCELLED
+}
