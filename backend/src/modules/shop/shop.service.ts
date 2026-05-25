@@ -7,6 +7,7 @@
 
 import { prisma }   from '../../config/prisma';
 import { storeFile } from '../../middleware/upload.middleware';
+import { signToken } from '../../utils/jwt';
 import type { CreateShopInput, UpdateShopInput } from './shop.schema';
 
 // ─── Safe shop fields returned to client ──────────────────────────────────────
@@ -58,14 +59,15 @@ export async function createShop(userId: string, input: CreateShopInput) {
   });
 
   // Update user's shopId
-  await prisma.user.update({
+  //! This is redundant since we have the relation, but it makes querying easier and is needed for JWT claims
+await prisma.user.update({
     where: { id: userId },
     data:  { shopId: shop.id },
   });
 
-  return shop;
+  const token = signToken({ userId, shopId: shop.id, role: user.role });
+  return { shop, token };
 }
-
 // ─── Update shop profile ──────────────────────────────────────────────────────
 
 export async function updateShop(shopId: string, input: UpdateShopInput) {

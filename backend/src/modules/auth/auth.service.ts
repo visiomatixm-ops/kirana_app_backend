@@ -7,6 +7,7 @@
 
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../config/prisma';
+import { storeFile } from '../../middleware/upload.middleware';
 import { signToken } from '../../utils/jwt';
 import type { RegisterInput, LoginInput } from './auth.schema';
 
@@ -37,6 +38,7 @@ export async function registerUser(input: RegisterInput) {
       name:      true,
       phone:     true,
       role:      true,
+      avatarUrl: true,
       shopId:    true,
       createdAt: true,
     },
@@ -61,6 +63,7 @@ export async function loginUser(input: LoginInput) {
       name:         true,
       phone:        true,
       role:         true,
+      avatarUrl:    true,
       shopId:       true,
       passwordHash: true,
       createdAt:    true,
@@ -98,6 +101,7 @@ export async function getCurrentUser(userId: string) {
       name:      true,
       phone:     true,
       role:      true,
+      avatarUrl: true,
       shopId:    true,
       createdAt: true,
       shop: {
@@ -112,5 +116,66 @@ export async function getCurrentUser(userId: string) {
   });
 
   if (!user) throw new Error('User not found');
+  return user;
+}
+
+// ── Upload profile photo ─────────────────────────────────────────────────────
+
+export async function uploadProfilePhoto(
+  userId: string,
+  file: Express.Multer.File,
+) {
+  const avatarUrl = await storeFile(file, 'kirana/avatars', `user_${userId}_avatar`);
+
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { avatarUrl },
+    select: {
+      id:        true,
+      name:      true,
+      phone:     true,
+      role:      true,
+      avatarUrl: true,
+      shopId:    true,
+      createdAt: true,
+      shop: {
+        select: {
+          id:      true,
+          name:    true,
+          gstin:   true,
+          logoUrl: true,
+        },
+      },
+    },
+  });
+
+  return user;
+}
+
+// ── Remove profile photo ────────────────────────────────────────────────────
+
+export async function removeProfilePhoto(userId: string) {
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { avatarUrl: null },
+    select: {
+      id:        true,
+      name:      true,
+      phone:     true,
+      role:      true,
+      avatarUrl: true,
+      shopId:    true,
+      createdAt: true,
+      shop: {
+        select: {
+          id:      true,
+          name:    true,
+          gstin:   true,
+          logoUrl: true,
+        },
+      },
+    },
+  });
+
   return user;
 }

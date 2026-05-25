@@ -6,7 +6,7 @@
 
 import type { Request, Response } from 'express';
 import { registerSchema, loginSchema } from './auth.schema';
-import { registerUser, loginUser, getCurrentUser } from './auth.service';
+import { registerUser, loginUser, getCurrentUser, uploadProfilePhoto, removeProfilePhoto } from './auth.service';
 import { ok, created, fail, serverError } from '../../utils/response';
 
 // POST /api/auth/register
@@ -49,6 +49,33 @@ export async function me(req: Request, res: Response) {
     const user = await getCurrentUser(req.user!.userId);
     ok(res, user);
   } catch (err) {
+    serverError(res);
+  }
+}
+
+// POST /api/auth/avatar  (protected — multipart upload)
+export async function uploadAvatar(req: Request, res: Response) {
+  const file = req.file;
+  if (!file) {
+    fail(res, 'No file uploaded. Send image as multipart/form-data field "avatar"');
+    return;
+  }
+
+  try {
+    const user = await uploadProfilePhoto(req.user!.userId, file);
+    ok(res, user);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Avatar upload failed';
+    fail(res, message);
+  }
+}
+
+// DELETE /api/auth/avatar
+export async function removeAvatar(req: Request, res: Response) {
+  try {
+    const user = await removeProfilePhoto(req.user!.userId);
+    ok(res, user);
+  } catch {
     serverError(res);
   }
 }

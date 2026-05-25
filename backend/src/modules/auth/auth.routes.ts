@@ -6,7 +6,8 @@
  */
 
 import { Router } from 'express';
-import { register, login, me } from './auth.controller';
+import { upload } from '../../middleware/upload.middleware';
+import { register, login, me, uploadAvatar, removeAvatar } from './auth.controller';
 import { authenticate } from '../../middleware/auth.middleware';
 
 const router = Router();
@@ -14,5 +15,7 @@ const router = Router();
 router.post('/register', register);
 router.post('/login',    login);
 router.get('/me',        authenticate, me);  // only this route needs auth
+router.post('/avatar',   authenticate, upload.single('avatar'), uploadAvatar);
+router.delete('/avatar', authenticate, removeAvatar);
 
 export default router;
