@@ -18,6 +18,7 @@ model User {
   phone        String   @unique
   passwordHash String
   role         Role     @default(OWNER)
+  avatarUrl    String?
   shop         Shop?    @relation(fields: [shopId], references: [id])
   shopId       String?
   createdAt    DateTime @default(now())

@@ -48,8 +48,8 @@ export async function createShopHandler(req: Request, res: Response) {
     return;
   }
   try {
-    const shop = await createShop(req.user!.userId, parsed.data);
-    created(res, shop);
+const result = await createShop(req.user!.userId, parsed.data);
+    created(res, result);   // now returns { shop, token }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Failed to create shop';
     fail(res, msg);
