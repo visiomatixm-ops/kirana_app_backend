@@ -39,10 +39,38 @@ model Shop {
   products     Product[]
   customers    Customer[]
   bills        Bill[]
+  khata        Khata[] 
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 }
+model Khata {
+  id            String         @id @default(cuid())
+  shopId        String
+  customerName  String
+  customerPhone String
+  pendingAmount Float
+  address       String?
+  note          String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
+  shop          Shop           @relation(fields: [shopId], references: [id])
+  payments      KhataPayment[]
+
+  @@index([shopId])
+}
+
+model KhataPayment {
+  id        String   @id @default(cuid())
+  khataId   String
+  amount    Float
+  note      String?
+  createdAt DateTime @default(now())
+
+  khata     Khata    @relation(fields: [khataId], references: [id])
+
+  @@index([khataId])
+}
 // ─── Inventory ────────────────────────────────────────────────────────────────
 
 model Product {
