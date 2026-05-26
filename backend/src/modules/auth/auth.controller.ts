@@ -5,9 +5,14 @@
  */
 
 import type { Request, Response } from 'express';
+import { z } from 'zod';
 import { registerSchema, loginSchema } from './auth.schema';
-import { registerUser, loginUser, getCurrentUser, uploadProfilePhoto, removeProfilePhoto } from './auth.service';
+import { registerUser, loginUser, loginWithGoogle, getCurrentUser, uploadProfilePhoto, removeProfilePhoto } from './auth.service';
 import { ok, created, fail, serverError } from '../../utils/response';
+
+const googleSchema = z.object({
+  idToken: z.string({ required_error: 'idToken is required' }).min(1, 'idToken is required'),
+});
 
 // POST /api/auth/register
 export async function register(req: Request, res: Response) {
@@ -40,6 +45,24 @@ export async function login(req: Request, res: Response) {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Login failed';
     fail(res, message, 401);
+  }
+}
+
+// POST /api/auth/google
+export async function googleLogin(req: Request, res: Response) {
+  const parsed = googleSchema.safeParse(req.body);
+  if (!parsed.success) {
+    fail(res, 'Validation failed');
+    return;
+  }
+
+  try {
+    const result = await loginWithGoogle(parsed.data);
+    ok(res, result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Google login failed';
+    const status = message.includes('configured') ? 500 : 400;
+    fail(res, message, status);
   }
 }
 

@@ -6,12 +6,19 @@
  */
 
 import bcrypt from 'bcryptjs';
+import { OAuth2Client } from 'google-auth-library';
 import { prisma } from '../../config/prisma';
 import { storeFile } from '../../middleware/upload.middleware';
 import { signToken } from '../../utils/jwt';
 import type { RegisterInput, LoginInput } from './auth.schema';
 
 const SALT_ROUNDS = 10;
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const googleClient = new OAuth2Client();
+
+type GoogleLoginInput = {
+  idToken: string;
+};
 
 // ── Register ──────────────────────────────────────────────────────────────────
 
@@ -89,6 +96,92 @@ export async function loginUser(input: LoginInput) {
   const { passwordHash: _removed, ...safeUser } = user;
 
   return { user: safeUser, token };
+}
+
+// ── Google OAuth Login ───────────────────────────────────────────────────────
+
+export async function loginWithGoogle(input: GoogleLoginInput) {
+  if (!GOOGLE_CLIENT_ID) {
+    throw new Error('Google client ID is not configured');
+  }
+
+  let payload;
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: input.idToken,
+      audience: GOOGLE_CLIENT_ID,
+    });
+    payload = ticket.getPayload();
+  } catch (err) {
+    if (err instanceof Error) {
+      const lower = err.message.toLowerCase();
+      if (lower.includes('expired') || lower.includes('token used too late')) {
+        throw new Error('Google ID token has expired');
+      }
+      if (lower.includes('invalid') || lower.includes('audience') || lower.includes('wrong number of segments')) {
+        throw new Error('Invalid Google ID token');
+      }
+    }
+    throw new Error('Google token verification failed');
+  }
+
+  if (!payload) {
+    throw new Error('Google token verification failed');
+  }
+
+  const email = payload.email;
+  const name = payload.name || 'Google User';
+  const picture = payload.picture || null;
+
+  if (!email) {
+    throw new Error('Google account email is required');
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { phone: email },
+    select: {
+      id:        true,
+      name:      true,
+      phone:     true,
+      role:      true,
+      avatarUrl: true,
+      shopId:    true,
+    },
+  });
+
+  const user = existingUser ?? await prisma.user.create({
+    data: {
+      name,
+      phone: email,
+      passwordHash: await bcrypt.hash(Math.random().toString(36).slice(2), SALT_ROUNDS),
+      role: 'OWNER',
+      avatarUrl: picture,
+    },
+    select: {
+      id:        true,
+      name:      true,
+      phone:     true,
+      role:      true,
+      avatarUrl: true,
+      shopId:    true,
+    },
+  });
+
+  const token = signToken({
+    userId: user.id,
+    shopId: user.shopId,
+    role:   user.role,
+  });
+
+  return {
+    token,
+    user: {
+      id: user.id,
+      email,
+      name: user.name,
+      avatar: user.avatarUrl ?? null,
+    },
+  };
 }
 
 // ── Get current user ──────────────────────────────────────────────────────────

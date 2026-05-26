@@ -8,6 +8,9 @@ const envSchema = z.object({
   JWT_SECRET:       z.string().min(16, 'JWT_SECRET must be at least 16 chars'),
   JWT_EXPIRES_IN:   z.string().default('7d'),
   CORS_ORIGINS:     z.string().default('http://localhost:5173'),
+  GMAIL_USER:        z.string().optional(),
+  GMAIL_PASSWORD:    z.string().optional(),
+  GOOGLE_CLIENT_ID:  z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
