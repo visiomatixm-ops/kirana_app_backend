@@ -50,7 +50,9 @@ export async function login(req: Request, res: Response) {
 
 // POST /api/auth/google
 export async function googleLogin(req: Request, res: Response) {
+  console.log(req.body);
   const parsed = googleSchema.safeParse(req.body);
+  
   if (!parsed.success) {
     fail(res, 'Validation failed');
     return;
@@ -60,8 +62,27 @@ export async function googleLogin(req: Request, res: Response) {
     const result = await loginWithGoogle(parsed.data);
     ok(res, result);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Google login failed';
-    const status = message.includes('configured') ? 500 : 400;
+    const errorCode =
+      err && typeof err === 'object' && 'code' in err
+        ? String((err as { code?: unknown }).code)
+        : '';
+    const message =
+      errorCode === 'P1001'
+        ? 'Database unavailable. Please check the database connection.'
+        : err instanceof Error ? err.message : 'Google login failed';
+    const lower = message.toLowerCase();
+
+    // If server is misconfigured, this shouldn't be a generic 500
+    const status =
+      errorCode === 'P1001' ? 503 : lower.includes('not configured') ? 503 : lower.includes('configured') ? 500 : 400;
+
+    // Ensure we can see the real reason of the error in server logs
+    console.error('[googleLogin] failed:', {
+      message,
+      hasErr: err instanceof Error,
+      err,
+    });
+
     fail(res, message, status);
   }
 }

@@ -1,10 +1,12 @@
 import type { Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { sendOtpToEmail, sendOtpToPhone, verifyOtp as verifyOtpUtil } from '../../utils/otp';
 import { ok, fail } from '../../utils/response';
 import { prisma } from '../../config/prisma';
 import { signToken } from '../../utils/jwt';
 
 export async function sendOtp(req: Request, res: Response) {
+  console.log("SEND OTP BODY:", req.body);
   const { email, phone } = req.body;
 
   try {
@@ -58,7 +60,10 @@ export async function verifyOtp(req: Request, res: Response) {
     let user = existingUser;
     if (!user) {
       // create a lightweight user record (random password)
-      const passwordHash = await (await import('bcryptjs')).hash(Math.random().toString(36).slice(2), 10);
+      const passwordHash = await bcrypt.hash(
+  Math.random().toString(36).slice(2),
+  10
+);
       user = await prisma.user.create({
         data: {
           name: contact.split('@')[0],
@@ -72,7 +77,17 @@ export async function verifyOtp(req: Request, res: Response) {
 
     const token = signToken({ userId: user.id, shopId: user.shopId, role: user.role });
 
-    return ok(res, { token, user: { id: user.id, email: user.phone, name: user.name, avatar: user.avatarUrl ?? null } });
+    // Return shopId so frontend can determine whether shop setup is complete
+    return ok(res, {
+      token,
+      user: {
+        id: user.id,
+        email: user.phone,
+        name: user.name,
+        avatar: user.avatarUrl ?? null,
+        shopId: user.shopId ?? null,
+      },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'OTP verification failed';
     fail(res, message);

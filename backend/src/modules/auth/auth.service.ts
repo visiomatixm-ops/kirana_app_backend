@@ -14,7 +14,10 @@ import type { RegisterInput, LoginInput } from './auth.schema';
 
 const SALT_ROUNDS = 10;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const googleClient = new OAuth2Client();
+const googleClient =
+  new OAuth2Client(
+    GOOGLE_CLIENT_ID
+  );
 
 type GoogleLoginInput = {
   idToken: string;
@@ -173,15 +176,16 @@ export async function loginWithGoogle(input: GoogleLoginInput) {
     role:   user.role,
   });
 
-  return {
-    token,
-    user: {
-      id: user.id,
-      email,
-      name: user.name,
-      avatar: user.avatarUrl ?? null,
-    },
-  };
+return {
+  token,
+  user: {
+    id: user.id,
+    email,
+    name: user.name,
+    avatar: user.avatarUrl ?? null,
+    shopId: user.shopId,
+  },
+};
 }
 
 // ── Get current user ──────────────────────────────────────────────────────────

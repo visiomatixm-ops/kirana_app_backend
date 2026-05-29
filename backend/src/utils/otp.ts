@@ -1,17 +1,27 @@
 import nodemailer from 'nodemailer';
 import { env } from '../config/env';
+import twilio from 'twilio';
+
+
 
 // Store OTPs in memory (use Redis in production)
 const otpStore = new Map<string, { code: string; expiresAt: number }>();
 
 // Email transporter setup
+console.log("EMAIL_USER =", process.env.EMAIL_USER);
+console.log("EMAIL_PASS EXISTS =", !!process.env.EMAIL_PASS);
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASSWORD,
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
 });
+
+const twilioClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID!,
+  process.env.TWILIO_AUTH_TOKEN!
+);
 
 /**
  * Generate and send OTP to email
@@ -29,7 +39,7 @@ export async function sendOtpToEmail(email: string): Promise<string> {
   // Send email
   try {
     await transporter.sendMail({
-      from: process.env.GMAIL_USER,
+      from: process.env.EMAIL_USER,
       to: email,
       subject: 'Your OTP for Login - Kirana Enterprise',
       html: `
@@ -56,20 +66,50 @@ export async function sendOtpToEmail(email: string): Promise<string> {
 /**
  * Generate and send OTP to phone (SMS - requires Twilio or similar)
  */
-export async function sendOtpToPhone(phone: string): Promise<string> {
-  // Generate 6-digit OTP
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  
-  // Store OTP with 10 minute expiry
+console.log("TWILIO FUNCTION CALLED");
+export async function sendOtpToPhone(
+  phone: string
+): Promise<string> {
+
+  const otp = Math.floor(
+    100000 + Math.random() * 900000
+  ).toString();
+
   otpStore.set(phone, {
     code: otp,
     expiresAt: Date.now() + 10 * 60 * 1000,
   });
 
-  // TODO: Integrate with SMS service (Twilio)
-  console.log(`OTP for ${phone}: ${otp}`);
-  
-  return otp;
+  const formattedPhone =
+    phone.startsWith("+")
+      ? phone
+      : `+91${phone}`;
+
+  try {
+
+    const message =
+      await twilioClient.messages.create({
+        body: `Your OTP for Kirana Enterprise is ${otp}`,
+        from: process.env.TWILIO_PHONE_NUMBER!,
+        to: formattedPhone,
+      });
+
+    console.log("SMS SID:", message.sid);
+    console.log("SMS STATUS:", message.status);
+
+    return otp;
+
+  } catch (err) {
+
+    console.error(
+      "Twilio SMS Error:",
+      err
+    );
+
+    throw new Error(
+      "Failed to send OTP SMS"
+    );
+  }
 }
 
 /**
