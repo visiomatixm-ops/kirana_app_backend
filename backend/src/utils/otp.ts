@@ -8,8 +8,8 @@ const otpStore = new Map<string, { code: string; expiresAt: number }>();
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASSWORD,
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
 });
 
@@ -29,7 +29,7 @@ export async function sendOtpToEmail(email: string): Promise<string> {
   // Send email
   try {
     await transporter.sendMail({
-      from: process.env.GMAIL_USER,
+      from: process.env.EMAIL_USER,
       to: email,
       subject: 'Your OTP for Login - Kirana Enterprise',
       html: `
