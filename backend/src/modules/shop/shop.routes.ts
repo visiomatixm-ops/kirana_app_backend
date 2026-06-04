@@ -20,6 +20,7 @@ import {
   uploadSignatureHandler,
   removeLogoHandler,
   removeSignatureHandler,
+  verifyGstHandler
 } from './shop.controller';
 
 const router = Router();
@@ -27,6 +28,8 @@ const router = Router();
 router.get('/',    getShopHandler);
 router.post('/',   createShopHandler);
 router.patch('/',  updateShopHandler);
+router.get('/verify-gst/:gstin', verifyGstHandler);
+
 
 // File uploads — single file, field name must match
 router.post('/logo',      upload.single('logo'),      uploadLogoHandler);

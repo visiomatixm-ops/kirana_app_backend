@@ -135,3 +135,38 @@ export async function removeSignatureHandler(req: Request, res: Response) {
     serverError(res);
   }
 }
+
+
+// ── GST API response shape ────────────────────────────────────────────────────
+interface GstApiResponse {
+  status?: string;
+  legalName?: string;
+  [key: string]: unknown;
+}
+
+//todo GET /api/shop/verify-gst/:gstin
+export async function verifyGstHandler(req: Request, res: Response) {
+  const gstin = req.params['gstin'] as string;          // ← fix 3
+
+  const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+  if (!gstRegex.test(gstin)) {
+    return res.json({ valid: false, reason: 'Invalid format' });
+  }
+
+  try {
+    const response = await fetch(`https://sheet2api.com/v1/gst/${gstin}`);
+    if (!response.ok) {
+      return res.json({ valid: true, reason: 'Format valid (live check unavailable)' });
+    }
+
+    const data = await response.json() as GstApiResponse;   
+
+    if (data?.status === 'Active') {
+      return res.json({ valid: true, legalName: data.legalName ?? null });
+    }
+    return res.json({ valid: false, reason: 'GSTIN not found or inactive' });
+  } 
+  catch {
+    return res.json({ valid: true, reason: 'Format valid (live check unavailable)' });
+  }
+}
