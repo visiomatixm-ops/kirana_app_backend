@@ -9,6 +9,10 @@ import { z } from 'zod';
 import { registerSchema, loginSchema } from './auth.schema';
 import { registerUser, loginUser, loginWithGoogle, getCurrentUser, uploadProfilePhoto, removeProfilePhoto } from './auth.service';
 import { ok, created, fail, serverError } from '../../utils/response';
+import admin from "../../config/firebase";
+import { prisma } from "../../config/prisma";
+import { signToken } from "../../utils/jwt";
+import bcrypt from "bcryptjs";
 
 const googleSchema = z.object({
   idToken: z.string({ required_error: 'idToken is required' }).min(1, 'idToken is required'),
@@ -84,6 +88,85 @@ export async function googleLogin(req: Request, res: Response) {
     });
 
     fail(res, message, status);
+  }
+}
+
+export async function firebasePhoneLogin(
+  req: Request,
+  res: Response
+) {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      fail(res, "Firebase token required");
+      return;
+    }
+
+    const decoded =
+      await admin
+        .auth()
+        .verifyIdToken(idToken);
+
+    const phone =
+      decoded.phone_number;
+
+    if (!phone) {
+      fail(
+        res,
+        "Phone number not found"
+      );
+      return;
+    }
+
+    let user =
+      await prisma.user.findUnique({
+        where: { phone },
+      });
+
+    if (!user) {
+
+      const passwordHash =
+        await bcrypt.hash(
+          Math.random()
+            .toString(36),
+          10
+        );
+
+      user =
+        await prisma.user.create({
+          data: {
+            phone,
+            name:
+              `User-${phone.slice(-4)}`,
+            passwordHash,
+            role: "OWNER",
+          },
+        });
+
+    }
+
+    const token =
+      signToken({
+        userId: user.id,
+        shopId: user.shopId,
+        role: user.role,
+      });
+
+    ok(res, {
+      token,
+      user,
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    fail(
+      res,
+      "Firebase login failed"
+    );
+
   }
 }
 
